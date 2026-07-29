@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HDB Data Platform — AWS Architecture Diagram</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #f5f2eb;
+    --card: #fdfcfa;
+    --border: #e5dfd4;
+    --text: #212529;
+    --text-secondary: #6c757d;
+    --text-tertiary: #9ca3af;
+    --red: #C3141E;
+    --red-bg: #fdf0f0;
+    --red-border: #f5c8ca;
+    --teal: #0A676D;
+    --teal-bg: #EFF8FA;
+    --teal-border: #b8d9dd;
+    --sage: #5a8a6a;
+    --sage-bg: #edf4ef;
+    --clay: #b8735c;
+    --clay-bg: #f5ede9;
+    --slate: #5a738a;
+    --slate-bg: #eef2f4;
+    --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-lg: 0 4px 24px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+    --radius: 10px;
+    --radius-sm: 6px;
+    --nav-h: 48px;
+  }
+
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Scroll progress bar ── */
+  #progress-bar {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: var(--red); width: 0%;
+    z-index: 1000; transition: width 0.1s;
+  }
+
+  /* ── Sticky nav ── */
+  .top-nav {
+    position: sticky; top: 0; z-index: 100;
+    max-width: 1100px; margin: 0 auto 16px;
+    background: rgba(245,242,235,0.85);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-radius: var(--radius);
+    padding: 0 14px;
+    height: var(--nav-h);
+    display: flex; align-items: center; gap: 4px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .top-nav .brand {
+    display: flex; align-items: center; gap: 10px;
+    margin-right: auto;
+  }
+  .top-nav .brand img { height: 20px; width: auto; }
+  .top-nav .brand .title {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    letter-spacing: -0.2px;
+  }
+  .top-nav .brand .sub {
+    font-size: 11px; color: var(--text-tertiary);
+  }
+  .top-nav .sep {
+    width: 1px; height: 18px; background: var(--border); margin: 0 2px;
+  }
+  .top-nav a {
+    font-size: 12px; color: var(--text-secondary); text-decoration: none;
+    padding: 4px 10px; border-radius: 6px; transition: all 0.15s;
+    font-weight: 500; white-space: nowrap;
+  }
+  .top-nav a:hover { background: var(--card); color: var(--red); }
+  .top-nav a.active { background: var(--red-bg); color: var(--red); font-weight: 600; }
+
+  /* ── Main card ── */
+  .canvas {
+    max-width: 1100px; margin: 0 auto;
+    background: var(--card); border-radius: var(--radius);
+    box-shadow: var(--shadow-lg); padding: 32px; position: relative;
+  }
+
+  /* ── Section ── */
+  .section { margin-bottom: 40px; scroll-margin-top: 72px; }
+  .section:last-child { margin-bottom: 0; }
+  .section + .section { padding-top: 32px; border-top: 1px solid var(--border); }
+
+  .section-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+    cursor: pointer; user-select: none;
+  }
+  .section-header:hover .section-number { transform: scale(1.1); }
+  .section-number {
+    width: 28px; height: 28px; background: var(--red-bg); color: var(--red);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 650; transition: transform 0.15s;
+  }
+  .section-header h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
+  .section-header .tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    background: var(--teal-bg); color: var(--teal); font-weight: 500;
+    margin-left: auto;
+  }
+  .section-header .toggle-hint {
+    font-size: 10px; color: var(--text-tertiary); opacity: 0;
+    transition: opacity 0.15s; margin-left: 4px;
+  }
+  .section-header:hover .toggle-hint { opacity: 1; }
+
+  /* ── Collapsible body ── */
+  .section-body { overflow: hidden; transition: max-height 0.35s ease, opacity 0.25s ease; max-height: none; opacity: 1; }
+  .section-body.collapsed { max-height: 0 !important; opacity: 0; padding-top: 0 !important; margin-top: 0 !important; }
+
+  /* ── Pipeline flow ── */
+  .pipeline {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; flex-wrap: nowrap; overflow: visible;
+    padding: 28px 0 12px; position: relative;
+  }
+
+  .pipe-node {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 6px; min-width: 90px; flex-shrink: 0;
+    cursor: pointer; position: relative;
+  }
+  .pipe-node .icon-wrap {
+    width: 48px; height: 48px; background: var(--card);
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  }
+  .pipe-node:hover .icon-wrap {
+    border-color: var(--red); box-shadow: 0 0 0 3px var(--red-bg);
+    transform: translateY(-2px);
+  }
+  .pipe-node .icon-wrap img { width: 28px; height: 28px; }
+  .pipe-node .icon-wrap.external {
+    background: var(--red-bg); border-color: var(--red-border); font-size: 22px;
+  }
+  .pipe-node .icon-wrap.destination {
+    background: var(--red-bg); border-color: var(--red-border);
+  }
+  .pipe-node .label {
+    font-size: 11px; font-weight: 500; color: var(--text-secondary);
+    text-align: center; line-height: 1.3; max-width: 90px;
+    transition: color 0.15s;
+  }
+  .pipe-node:hover .label { color: var(--text); }
+  .pipe-node .label strong { color: var(--text); font-weight: 600; display: block; }
+
+  /* ── Tooltip ── */
+  .pipe-node {
+    position: relative;
+  }
+  .tooltip {
+    position: absolute; bottom: calc(100% + 48px); left: 50%; transform: translateX(-50%);
+    background: var(--text); color: #fff; font-size: 10px; line-height: 1.4;
+    padding: 6px 10px; border-radius: 6px; pointer-events: none;
+    opacity: 0; transition: opacity 0.18s ease;
+    z-index: 300; max-width: 200px; white-space: normal; text-align: center;
+    font-weight: 400;
+  }
+  .tooltip::after {
+    content: ''; position: absolute; top: 100%; left: 50%;
+    transform: translateX(-50%); border: 5px solid transparent;
+    border-top-color: var(--text);
+  }
+  .pipe-node:hover .tooltip { opacity: 1; }
+
+  /* ── Animated dot on arrows ── */
+  .pipe-arrow { position: relative; display: flex; align-items: center; flex-shrink: 0; padding: 0 4px; }
+  .pipe-arrow svg { width: 40px; height: 20px; }
+  .pipe-arrow .dot {
+    position: absolute; left: 4px; width: 5px; height: 5px;
+    background: var(--red); border-radius: 50%;
+    animation: flow-dot 1.8s ease-in-out infinite;
+  }
+  @keyframes flow-dot {
+    0%   { left: 2px; opacity: 1; }
+    80%  { opacity: 1; }
+    100% { left: 32px; opacity: 0; }
+  }
+
+  /* ── Orchestration bar ── */
+  .orchestration {
+    display: flex; gap: 20px; justify-content: center; align-items: center;
+    margin-top: 16px; padding: 10px 20px; background: var(--bg);
+    border-radius: var(--radius-sm);
+  }
+  .orchestration .item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .orchestration .item img { width: 18px; height: 18px; }
+
+  /* ── Detail panel (bottom sheet) ── */
+  .detail-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+    z-index: 200; display: none;
+    animation: fade-in 0.2s ease;
+  }
+  .detail-overlay.open { display: block; }
+  .detail-panel {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 680px; max-height: 60vh;
+    background: var(--card); border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.12);
+    padding: 24px 28px; overflow-y: auto;
+    z-index: 201; display: none;
+    animation: slide-up 0.3s ease;
+  }
+  .detail-panel.open { display: block; }
+  .detail-panel .handle {
+    width: 32px; height: 4px; background: var(--border);
+    border-radius: 4px; margin: 0 auto 16px;
+  }
+  .detail-panel .close {
+    position: absolute; top: 16px; right: 20px;
+    background: none; border: none; font-size: 20px;
+    color: var(--text-tertiary); cursor: pointer;
+    width: 28px; height: 28px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .detail-panel .close:hover { background: var(--bg); }
+  .detail-panel h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .detail-panel .detail-sub {
+    font-size: 12px; color: var(--text-secondary); margin-bottom: 14px;
+  }
+  .detail-panel .detail-icon {
+    width: 36px; height: 36px; margin-bottom: 8px;
+  }
+  .detail-panel table {
+    width: 100%; border-collapse: collapse; font-size: 12px;
+  }
+  .detail-panel td {
+    padding: 6px 0; border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .detail-panel td:first-child {
+    font-weight: 600; color: var(--text-secondary); width: 100px;
+    padding-right: 12px;
+  }
+  .detail-panel td:last-child { color: var(--text); }
+
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slide-up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+
+  /* ── VPC box ── */
+  .vpc-box {
+    border: 2px solid var(--teal-border); border-radius: 12px;
+    padding: 24px; background: var(--teal-bg); position: relative;
+  }
+  .vpc-label {
+    position: absolute; top: -10px; left: 20px;
+    background: var(--teal); color: #fff; font-size: 11px; font-weight: 600;
+    padding: 3px 12px; border-radius: 20px; letter-spacing: 0.2px;
+  }
+  .vpc-label small { font-weight: 400; opacity: 0.8; }
+
+  .subnet-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 12px;
+  }
+  .subnet {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 8px; padding: 14px 10px; text-align: center;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .subnet:hover { transform: translateY(-1px); }
+  .subnet .s-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 2px;
+  }
+  .subnet .s-cidr { font-size: 10px; color: var(--text-tertiary); margin-bottom: 10px; }
+  .subnet .s-services { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .subnet .s-services .svc { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .subnet .s-services .svc img { width: 24px; height: 24px; }
+  .subnet .s-services .svc .svc-label { font-size: 9px; color: var(--text-tertiary); white-space: nowrap; }
+  .subnet .s-note { font-size: 9px; color: var(--text-tertiary); margin-top: 6px; font-style: italic; }
+
+  .flow-indicators {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 10px;
+  }
+  .flow-indicators span {
+    text-align: center; font-size: 10px; color: var(--text-tertiary);
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .flow-indicators span .arrow-icon { color: var(--red); font-weight: 600; }
+
+  /* ── Badges ── */
+  .badge-group { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; }
+  .badge {
+    display: inline-block; font-size: 9px; font-weight: 600;
+    padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05px;
+  }
+  .badge-green  { background: var(--sage-bg); color: var(--sage); }
+  .badge-blue   { background: var(--teal-bg);  color: var(--teal); }
+  .badge-accent { background: var(--red-bg); color: var(--red); }
+  .badge-orange { background: var(--clay-bg); color: var(--clay); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 20px;
+    background: var(--sage-bg); color: var(--sage);
+    transition: background 0.15s;
+  }
+  .pill:hover { background: var(--sage-bg); filter: brightness(0.97); }
+  .pill.accent { background: var(--teal-bg); color: var(--teal); }
+
+  /* ── Security panel ── */
+  .security-grid { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .security-grid .item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-secondary);
+    background: var(--bg); padding: 6px 12px; border-radius: 20px;
+    border: 1px solid var(--border); transition: border-color 0.15s, background 0.15s;
+    cursor: default;
+  }
+  .security-grid .item:hover {
+    border-color: var(--red-border); background: var(--red-bg); color: var(--red);
+  }
+  .security-grid .item img { width: 18px; height: 18px; }
+
+  /* ── Expandable details ── */
+  .details-toggle {
+    text-align: center; margin-top: 24px;
+  }
+  .details-toggle button {
+    background: none; border: 1px solid var(--border);
+    font-size: 12px; color: var(--text-secondary); cursor: pointer;
+    padding: 6px 16px; border-radius: 20px;
+    transition: all 0.15s; font-weight: 500;
+  }
+  .details-toggle button:hover {
+    border-color: var(--red); color: var(--red); background: var(--red-bg);
+  }
+  .details-content {
+    max-height: 0; overflow: hidden; transition: max-height 0.35s ease, opacity 0.3s ease, margin 0.3s ease;
+    opacity: 0; margin-top: 0;
+  }
+  .details-content.open {
+    max-height: 800px; opacity: 1; margin-top: 16px;
+  }
+
+  /* ── Back to top ── */
+  #back-top {
+    position: fixed; bottom: 24px; right: 24px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--card); border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: var(--text-secondary);
+    opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.2s;
+    z-index: 90;
+  }
+  #back-top.visible { opacity: 1; pointer-events: auto; }
+  #back-top:hover { transform: translateY(-2px); color: var(--red); border-color: var(--red); }
+
+  /* ── Footer ── */
+  .footer { text-align: center; margin-top: 16px; font-size: 11px; color: var(--text-tertiary); }
+  .footer a { color: var(--red); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+
+  /* ── Responsive ── */
+  @media (max-width: 860px) {
+    body { padding: 12px; }
+    .canvas { padding: 24px; }
+    .subnet-row { grid-template-columns: repeat(2, 1fr); }
+    .flow-indicators { grid-template-columns: repeat(2, 1fr); }
+    .pipeline { flex-wrap: wrap; gap: 4px; }
+    .pipe-arrow svg { width: 24px; }
+    .top-nav { gap: 4px; overflow-x: auto; }
+    .top-nav .brand span { display: none; }
+    .top-nav a { font-size: 11px; padding: 4px 6px; }
+    .detail-panel { max-height: 70vh; padding: 20px; }
+  }
+  @media (max-width: 500px) {
+    .subnet-row { grid-template-columns: 1fr; }
+    .flow-indicators { grid-template-columns: 1fr; }
+    .top-nav a { font-size: 10px; padding: 3px 5px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<!-- ═══ Sticky Nav ═══ -->
+<nav class="top-nav">
+  <div class="brand">
+    <img src="icons/hdb-logo.png" alt="HDB">
+    <span class="title">HDB Resale Flat Prices</span>
+    <span class="sep"></span>
+    <span class="sub">AWS Architecture</span>
+  </div>
+  <a href="#sec-1" class="active" data-section="1">Ingestion</a>
+  <a href="#sec-2" data-section="2">Network</a>
+  <a href="#sec-3" data-section="3">Exploitation</a>
+  <a href="#sec-4" data-section="4">Security</a>
+</nav>
+
+<!-- ═══ Main Canvas ═══ -->
+<div class="canvas">
+
+  <!-- ──────── SECTION 1 ──────── -->
+  <div class="section" id="sec-1">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-number">1</div>
+      <h2>Data Ingestion Pipeline</h2>
+      <span class="tag">weekly batch</span>
+      <span class="toggle-hint">click to collapse</span>
+    </div>
+    <div class="section-body">
+      <div class="pipeline">
+
+        <div class="pipe-node" data-detail="datagovsg">
+          <div class="tooltip">Public HTTPS endpoint for CSV downloads</div>
+          <div class="icon-wrap external">🌐</div>
+          <div class="label"><strong>data.gov.sg</strong><br/>Public HTTPS</div>
+        </div>
+
+        <div class="pipe-arrow"><div class="dot"></div>
+          <svg viewBox="0 0 40 20"><path d="M2 10h30" stroke="#d5ccc0" stroke-width="1.5" fill="none"/><path d="M28 4l8 6-8 6" stroke="#C3141E" stroke-width="1.5" fill="none"/></svg>
+        </div>
+
+        <div class="pipe-node" data-detail="glue-download">
+          <div class="tooltip">Python Shell job — streaming HTTPS download</div>
+          <div class="icon-wrap"><img src="icons/glue.svg" alt="Glue"></div>
+          <div class="label"><strong>AWS Glue</strong><br/>Python Shell</div>
+        </div>
+
+        <div class="pipe-arrow"><div class="dot"></div>
+          <svg viewBox="0 0 40 20"><path d="M2 10h30" stroke="#d5ccc0" stroke-width="1.5" fill="none"/><path d="M28 4l8 6-8 6" stroke="#C3141E" stroke-width="1.5" fill="none"/></svg>
+        </div>
+
+        <div class="pipe-node" data-detail="s3-raw">
+          <div class="tooltip">Encrypted landing zone — SSE-KMS</div>
+          <div class="icon-wrap"><img src="icons/s3.svg" alt="S3"></div>
+          <div class="label"><strong>S3 Raw</strong><br/>SSE-KMS encrypted</div>
+        </div>
+
+        <div class="pipe-arrow"><div class="dot"></div>
+          <svg viewBox="0 0 40 20"><path d="M2 10h30" stroke="#d5ccc0" stroke-width="1.5" fill="none"/><path d="M28 4l8 6-8 6" stroke="#C3141E" stroke-width="1.5" fill="none"/></svg>
+        </div>
+
+        <div class="pipe-node" data-detail="glue-etl">
+          <div class="tooltip">PySpark — Clean → Transform → Dedup → Hash</div>
+          <div class="icon-wrap"><img src="icons/glue.svg" alt="Glue"></div>
+          <div class="label"><strong>AWS Glue</strong><br/>PySpark ETL</div>
+        </div>
+
+        <div class="pipe-arrow"><div class="dot"></div>
+          <svg viewBox="0 0 40 20"><path d="M2 10h30" stroke="#d5ccc0" stroke-width="1.5" fill="none"/><path d="M28 4l8 6-8 6" stroke="#C3141E" stroke-width="1.5" fill="none"/></svg>
+        </div>
+
+        <div class="pipe-node" data-detail="s3-lake">
+          <div class="tooltip">Four output zones: Cleaned · Transformed · Hashed · Failed</div>
+          <div class="icon-wrap destination"><img src="icons/s3.svg" alt="S3"></div>
+          <div class="label"><strong>S3 Data Lake</strong></div>
+          <div class="badge-group">
+            <span class="badge badge-green">Cleaned</span>
+            <span class="badge badge-blue">Transformed</span>
+            <span class="badge badge-accent">Hashed</span>
+            <span class="badge badge-orange">Failed</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="orchestration">
+        <div class="item"><img src="icons/eventbridge.svg"> EventBridge</div>
+        <span style="color:var(--text-tertiary);">→</span>
+        <div class="item"><img src="icons/step-functions.svg"> Step Functions</div>
+        <span style="color:var(--text-tertiary);">→</span>
+        <div class="item"><img src="icons/sns.svg"> SNS notifications</div>
+      </div>
+
+      <div class="details-toggle">
+        <button onclick="toggleDetails(this)">Show architecture decisions</button>
+      </div>
+      <div class="details-content">
+        <div style="padding:16px;background:var(--bg);border-radius:8px;font-size:13px;line-height:1.7;">
+          <strong style="color:var(--red);">Large file handling:</strong> Files > 100 MB are streamed in chunks and uploaded via S3 multipart upload — memory footprint stays under 10 MB.<br>
+          <strong style="color:var(--red);">Scheduling:</strong> EventBridge fires every Sunday 02:00 SGT. Step Functions orchestrates the workflow and handles retries with exponential backoff.<br>
+          <strong style="color:var(--red);">Network:</strong> The Glue download job runs in a private subnet and reaches data.gov.sg through the NAT Gateway in the DMZ.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────── SECTION 2 ──────── -->
+  <div class="section" id="sec-2">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-number">2</div>
+      <h2>Network Segmentation</h2>
+      <span class="tag">private VPC</span>
+      <span class="toggle-hint">click to collapse</span>
+    </div>
+    <div class="section-body">
+      <div class="vpc-box">
+        <div class="vpc-label">HDB VPC <small>10.0.0.0/16</small></div>
+        <div class="subnet-row">
+          <div class="subnet" style="border-color:var(--red-border);">
+            <div class="s-label" style="color:var(--red);">DMZ</div>
+            <div class="s-cidr">10.0.1.0/24</div>
+            <div class="s-services">
+              <div class="svc"><img src="icons/nat-gateway.svg"><span class="svc-label">NAT Gateway</span></div>
+            </div>
+            <div class="s-note">Outbound internet only</div>
+          </div>
+          <div class="subnet" style="border-color:var(--teal-border);">
+            <div class="s-label" style="color:var(--teal);">Application</div>
+            <div class="s-cidr">10.0.10.0/24</div>
+            <div class="s-services">
+              <div class="svc"><img src="icons/glue.svg"><span class="svc-label">Glue</span></div>
+              <div class="svc"><img src="icons/step-functions.svg"><span class="svc-label">Step Functions</span></div>
+              <div class="svc"><img src="icons/lambda.svg"><span class="svc-label">Lambda</span></div>
+            </div>
+          </div>
+          <div class="subnet" style="border-color:var(--teal-border);">
+            <div class="s-label" style="color:var(--teal);">Data</div>
+            <div class="s-cidr">10.0.20.0/24</div>
+            <div class="s-services">
+              <div class="svc"><img src="icons/s3.svg"><span class="svc-label">S3 Gateway EP</span></div>
+              <div class="svc"><img src="icons/privatelink.svg"><span class="svc-label">Athena EP</span></div>
+            </div>
+          </div>
+          <div class="subnet" style="border-color:var(--teal-border);background:var(--teal-bg);">
+            <div class="s-label" style="color:var(--teal);">Analytics</div>
+            <div class="s-cidr">10.0.30.0/24</div>
+            <div class="s-services">
+              <div class="svc"><img src="icons/ec2.svg"><span class="svc-label">Tableau Server</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="flow-indicators">
+          <span>🌐 <span class="arrow-icon">→</span> NAT outbound</span>
+          <span>Glue <span class="arrow-icon">↕</span> downloads</span>
+          <span>S3 <span class="arrow-icon">↕</span> Athena</span>
+          <span>Tableau <span class="arrow-icon">↕</span> queries</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────── SECTION 3 ──────── -->
+  <div class="section" id="sec-3">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-number">3</div>
+      <h2>Data Exploitation</h2>
+      <span class="tag">private analytics</span>
+      <span class="toggle-hint">click to collapse</span>
+    </div>
+    <div class="section-body">
+      <div class="pipeline">
+        <div class="pipe-node" data-detail="s3-lake-2">
+          <div class="tooltip">Processed datasets in Parquet format, partitioned by year/month</div>
+          <div class="icon-wrap"><img src="icons/s3.svg" alt="S3"></div>
+          <div class="label"><strong>S3 Data Lake</strong><br/>Parquet · partitioned</div>
+        </div>
+        <div class="pipe-arrow"><div class="dot"></div>
+          <svg viewBox="0 0 40 20"><path d="M2 10h30" stroke="#d5ccc0" stroke-width="1.5" fill="none"/><path d="M28 4l8 6-8 6" stroke="#C3141E" stroke-width="1.5" fill="none"/></svg>
+        </div>
+        <div class="pipe-node" data-detail="athena">
+          <div class="tooltip">Serverless SQL engine — pay per query, no infrastructure to manage</div>
+          <div class="icon-wrap"><img src="icons/athena.svg" alt="Athena"></div>
+          <div class="label"><strong>Amazon Athena</strong><br/>Serverless SQL</div>
+        </div>
+        <div class="pipe-arrow"><div class="dot"></div>
+          <svg viewBox="0 0 40 20"><path d="M2 10h30" stroke="#d5ccc0" stroke-width="1.5" fill="none"/><path d="M28 4l8 6-8 6" stroke="#C3141E" stroke-width="1.5" fill="none"/></svg>
+        </div>
+        <div class="pipe-node" data-detail="vpce">
+          <div class="tooltip">AWS PrivateLink — keeps traffic within the VPC</div>
+          <div class="icon-wrap" style="border-color:var(--teal-border);background:var(--teal-bg);"><img src="icons/privatelink.svg" alt="PrivateLink"></div>
+          <div class="label"><strong>Athena VPC EP</strong><br/>AWS PrivateLink</div>
+        </div>
+        <div class="pipe-arrow"><div class="dot"></div>
+          <svg viewBox="0 0 40 20"><path d="M2 10h30" stroke="#d5ccc0" stroke-width="1.5" fill="none"/><path d="M28 4l8 6-8 6" stroke="#C3141E" stroke-width="1.5" fill="none"/></svg>
+        </div>
+        <div class="pipe-node" data-detail="tableau">
+          <div class="tooltip">Connects via Athena ODBC/JDBC driver over PrivateLink</div>
+          <div class="icon-wrap"><img src="icons/ec2.svg" alt="EC2"></div>
+          <div class="label"><strong>Tableau Server</strong><br/>EC2 · Analytics subnet</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap;">
+        <span class="pill">✓ All traffic stays within VPC</span>
+        <span class="pill">✓ No public internet path</span>
+        <span class="pill accent">✓ Encrypted at rest &amp; in transit</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────── SECTION 4 ──────── -->
+  <div class="section" id="sec-4">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-number">4</div>
+      <h2>Security Controls</h2>
+      <span class="tag">defence in depth</span>
+      <span class="toggle-hint">click to collapse</span>
+    </div>
+    <div class="section-body">
+      <div class="security-grid">
+        <div class="item"><img src="icons/kms.svg"> SSE-KMS encryption</div>
+        <div class="item"><img src="icons/iam.svg"> Least-privilege IAM</div>
+        <div class="item"><img src="icons/vpc.svg"> Private subnets only</div>
+        <div class="item"><img src="icons/privatelink.svg"> VPC Endpoints</div>
+        <div class="item"><img src="icons/waf.svg"> WAF at edge</div>
+      </div>
+
+      <div class="details-toggle">
+        <button onclick="toggleDetails(this)">Show cost estimate</button>
+      </div>
+      <div class="details-content">
+        <div style="padding:16px;background:var(--bg);border-radius:8px;font-size:13px;line-height:1.7;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);font-weight:600;">Service</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);font-weight:600;">Monthly</td></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">S3 Storage (~50 GB)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$1.25</td></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">AWS Glue (2 jobs/week)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$3</td></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">Athena (~20 queries/week)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$0.20</td></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">NAT Gateway</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$43</td></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">VPC Endpoints</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$7.30</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:600;color:var(--red);">Total</td><td style="padding:6px 12px;font-weight:600;color:var(--red);">~$54.75</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  AWS architecture icons from the <a href="https://aws.amazon.com/architecture/icons/">official AWS Architecture Icon Pack</a>
+</div>
+
+<button id="back-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- ═══ Detail Panel (bottom sheet) ═══ -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="handle"></div>
+  <button class="close" onclick="closeDetail()">✕</button>
+  <img class="detail-icon" id="detail-icon" src="" alt="">
+  <h3 id="detail-title"></h3>
+  <div class="detail-sub" id="detail-subtitle"></div>
+  <table id="detail-table">
+    <tbody id="detail-body"></tbody>
+  </table>
+</div>
+
+<script>
+  // ── Detail data for each component ──
+  const details = {
+    'datagovsg': {
+      icon: 'icons/athena.svg',
+      title: 'data.gov.sg',
+      subtitle: 'Singapore Government Open Data Portal',
+      rows: [
+        ['Endpoint', 'Public HTTPS REST API'],
+        ['Protocol', 'HTTPS (TLS 1.2+)'],
+        ['File format', 'CSV (comma-separated values)'],
+        ['Schedule', 'Weekly on Sunday 02:00 SGT'],
+        ['Auth', 'API key (if required) or anonymous public access'],
+      ]
+    },
+    'glue-download': {
+      icon: 'icons/glue.svg',
+      title: 'AWS Glue — Python Shell',
+      subtitle: 'Streaming HTTP download job (0.25 DPU)',
+      rows: [
+        ['Type', 'AWS Glue Python Shell'],
+        ['DPU', '0.25 (lightweight)'],
+        ['Runtime', '~5 minutes per run'],
+        ['Network', 'Private App Subnet → NAT Gateway → Internet'],
+        ['Large files', 'Streaming HTTPS + S3 multipart upload (under 10 MB memory)'],
+        ['Retry', 'Step Functions handles retries (exponential backoff)'],
+      ]
+    },
+    's3-raw': {
+      icon: 'icons/s3.svg',
+      title: 'S3 — Raw / Landing Zone',
+      subtitle: 'Encrypted landing bucket for raw CSV files',
+      rows: [
+        ['Bucket', 'hdb-data-lake-raw'],
+        ['Encryption', 'SSE-KMS (AWS KMS managed keys)'],
+        ['Access', 'VPC Gateway Endpoint only (no public access)'],
+        ['Lifecycle', 'Expire objects after 90 days'],
+        ['Versioning', 'Enabled for data recovery'],
+      ]
+    },
+    'glue-etl': {
+      icon: 'icons/glue.svg',
+      title: 'AWS Glue — PySpark ETL',
+      subtitle: 'Distributed ETL pipeline (2 DPU, flexible)',
+      rows: [
+        ['Type', 'AWS Glue PySpark'],
+        ['DPU', 'Flexible (auto-scales, starts at 2)'],
+        ['Stages', 'Validate → Clean → Transform → Dedup → Anomaly → Hash'],
+        ['Output format', 'Parquet (Snappy compressed)'],
+        ['Partitioning', 'By year and month for query efficiency'],
+        ['Runtime', '~15 minutes per weekly run'],
+      ]
+    },
+    's3-lake': {
+      icon: 'icons/s3.svg',
+      title: 'S3 — Data Lake Output Zones',
+      subtitle: 'Four destination buckets for processed data',
+      rows: [
+        ['Cleaned', 'Valid records that passed all checks'],
+        ['Transformed', 'Enriched with recomputed remaining lease'],
+        ['Hashed', 'PII-masked via SHA-256 (resale_identifier)'],
+        ['Failed', 'Records that failed validation (expire after 30 days)'],
+        ['Format', 'Parquet (columnar, Snappy compressed)'],
+        ['Encryption', 'SSE-KMS across all zones'],
+      ]
+    },
+    's3-lake-2': {
+      icon: 'icons/s3.svg',
+      title: 'S3 — Data Lake',
+      subtitle: 'Processed datasets in Parquet format',
+      rows: [
+        ['Format', 'Parquet (Snappy compressed, columnar)'],
+        ['Partitioning', 'year / month — reduces scan volume'],
+        ['Tables', 'Cleaned, Transformed, Hashed'],
+        ['Catalog', 'AWS Glue Data Catalog registers schemas'],
+        ['Access', 'S3 Gateway Endpoint (private, free)'],
+      ]
+    },
+    'athena': {
+      icon: 'icons/athena.svg',
+      title: 'Amazon Athena',
+      subtitle: 'Serverless SQL query engine',
+      rows: [
+        ['Engine', 'Athena Engine v3 (Trino-based)'],
+        ['Pricing', '$5 per TB of data scanned'],
+        ['Optimization', 'Parquet + partitioning reduces typical scan to 50–500 MB'],
+        ['Workgroup', 'hdb-analytics — per-query cost cap of $5'],
+        ['Results', 'Encrypted with SSE-KMS, expire after 60 days'],
+        ['Connection', 'Tableau uses Athena ODBC/JDBC driver'],
+      ]
+    },
+    'vpce': {
+      icon: 'icons/privatelink.svg',
+      title: 'Athena VPC Endpoint',
+      subtitle: 'AWS PrivateLink for private connectivity',
+      rows: [
+        ['Type', 'Interface VPC Endpoint (PrivateLink)'],
+        ['Service', 'com.amazonaws.ap-southeast-1.athena'],
+        ['Cost', '~$7.30/month per AZ'],
+        ['DNS', 'Private DNS enabled — no connection string changes'],
+        ['Security', 'Security group restricts to Analytics subnet CIDR'],
+        ['Traffic', 'Stays on AWS backbone — never traverses internet'],
+      ]
+    },
+    'tableau': {
+      icon: 'icons/ec2.svg',
+      title: 'Tableau Server',
+      subtitle: 'EC2 instance in the private Analytics subnet',
+      rows: [
+        ['Platform', 'EC2 instance (e.g. r5.xlarge)'],
+        ['Subnet', 'Analytics Subnet (10.0.30.0/24)'],
+        ['Driver', 'Athena ODBC Driver v3.x'],
+        ['Connectivity', 'Via Athena VPC Endpoint (private IP)'],
+        ['Authentication', 'IAM role for EC2 instance profile'],
+        ['Scaling', 'Auto Scaling Group with ALB if needed'],
+      ]
+    }
+  };
+
+  // ── Open detail panel on pipe-node click ──
+  document.querySelectorAll('.pipe-node[data-detail]').forEach(el => {
+    el.addEventListener('click', function(e) {
+      const key = this.dataset.detail;
+      const data = details[key];
+      if (!data) return;
+      document.getElementById('detail-icon').src = data.icon;
+      document.getElementById('detail-title').textContent = data.title;
+      document.getElementById('detail-subtitle').textContent = data.subtitle;
+      const tbody = document.getElementById('detail-body');
+      tbody.innerHTML = data.rows.map(r =>
+        `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`
+      ).join('');
+      document.getElementById('detail-overlay').classList.add('open');
+      document.getElementById('detail-panel').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    });
+  });
+
+  function closeDetail() {
+    document.getElementById('detail-overlay').classList.remove('open');
+    document.getElementById('detail-panel').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // ── Toggle section collapse ──
+  function toggleSection(header) {
+    const body = header.nextElementSibling;
+    const hint = header.querySelector('.toggle-hint');
+    if (!body || !body.classList.contains('section-body')) return;
+    body.classList.toggle('collapsed');
+    if (body.classList.contains('collapsed')) {
+      body.style.maxHeight = body.scrollHeight + 'px';
+      requestAnimationFrame(() => { body.style.maxHeight = '0px'; });
+      hint.textContent = 'click to expand';
+    } else {
+      body.style.maxHeight = '0px';
+      requestAnimationFrame(() => {
+        body.style.maxHeight = body.scrollHeight + 'px';
+        setTimeout(() => {
+          body.style.maxHeight = 'none';
+          hint.textContent = 'click to collapse';
+        }, 350);
+      });
+    }
+  }
+
+  // ── Toggle expandable details (cost / decisions) ──
+  function toggleDetails(btn) {
+    const content = btn.closest('.details-toggle').nextElementSibling;
+    if (!content || !content.classList.contains('details-content')) return;
+    const isOpen = content.classList.contains('open');
+    if (isOpen) {
+      content.style.maxHeight = '0px';
+      content.classList.remove('open');
+      btn.textContent = btn.textContent.replace('Hide', 'Show');
+    } else {
+      content.classList.add('open');
+      content.style.maxHeight = content.scrollHeight + 'px';
+      btn.textContent = btn.textContent.replace('Show', 'Hide');
+    }
+  }
+
+  // ── Scroll progress bar + active nav + back-to-top ──
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.scrollY;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    document.getElementById('progress-bar').style.width = progress + '%';
+    document.getElementById('back-top').classList.toggle('visible', scrollTop > 400);
+    document.querySelectorAll('.top-nav a').forEach(a => {
+      const sec = document.getElementById('sec-' + a.dataset.section);
+      if (sec) {
+        const rect = sec.getBoundingClientRect();
+        a.classList.toggle('active', rect.top <= 100 && rect.bottom >= 100);
+      }
+    });
+  });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+  console.log('HDB Architecture Diagram loaded');
+</script>
+</body>
+</html>

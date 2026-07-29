@@ -1,0 +1,26 @@
+{
+  "total_rows": 36683,
+  "anomalous_rows": 2166,
+  "anomaly_pct": 5.9,
+  "clean_rows": 34517,
+  "heuristics": {
+    "global_iqr": {
+      "desc": "Price outside 1.5x IQR from dataset quartiles",
+      "flagged": 1751
+    },
+    "psqm_town_flattype_z3": {
+      "desc": "Price/sqm z-score > 3.0 within same town + flat_type",
+      "flagged": 271
+    },
+    "psqm_flatmodel_z3": {
+      "desc": "Price/sqm z-score > 3.0 within same flat_model",
+      "flagged": 465
+    }
+  },
+  "assumptions": [
+    "99-year HDB lease assumed; remaining lease computed from lease_commence_date.",
+    "z-score threshold of 3.0 captures approximately 0.3% tail events under normality.",
+    "Peer groups use town + flat_type and flat_model independently.",
+    "Price per sqm normalises for unit size variation."
+  ]
+}
