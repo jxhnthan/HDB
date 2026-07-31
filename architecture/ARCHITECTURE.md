@@ -20,7 +20,7 @@
 
 ## Key Functions
 
-The platform performs two core functions:
+The proposed architecture serves two core functions:
 
 **Ingestion**: A weekly, fully automated pipeline downloads CSV data from `data.gov.sg`, applies cleaning and transformation logic, and stores the results in an S3-based data lake.
 
@@ -28,11 +28,11 @@ The platform performs two core functions:
 
 ### Key Design Decisions
 
-Before going into detail on the proposed data architecture, here's the rationale behind a few design chocies:
+Here's the rationale behind a few design chocies (non-exhaustive):
 
 | Decision | Why |
 |----------|-----|
-| **Athena + S3 instead of Redshift** | The dataset is small (< 5 TB) and queried infrequently. Redshift would provide faster concurrent queries but costs ~$180+/month for even a single-node cluster — more than double the cost of this entire platform. Athena's pay-per-query model is a better fit here. |
+| **Athena + S3 instead of Redshift** | The dataset is small (< 5 TB) and queried infrequently. Redshift would provide faster concurrent queries but costs ~$180+/month for even a single-node cluster, which is more than double the cost of this entire platform. Athena's pay-per-query model is a better fit here. |
 | **Parquet instead of CSV for processed data** | Parquet is a columnar format, which means Athena can skip irrelevant columns entirely and benefit from built-in compression. This reduces both query time and cost (Athena charges by data scanned). A typical query against Parquet scans 10–100× less data than the same query against CSV. |
 | **NAT Gateway for data download** | The NAT Gateway is the single most expensive component (~78% of the monthly bill). Unfortunately, it's unavoidable: `data.gov.sg` is a public internet endpoint, and resources in private subnets need the NAT Gateway to reach it. There is no AWS PrivateLink equivalent for external government APIs. |
 | **Serverless processing (Glue) instead of EC2-based ETL** | Glue jobs spin up only when needed and shut down immediately after. There are no servers to patch, scale, or pay for during idle time. For a weekly batch workload, this is significantly cheaper and simpler than maintaining dedicated EC2 instances. |
@@ -43,12 +43,12 @@ Before going into detail on the proposed data architecture, here's the rationale
 
 | # | Assumption | Risk |
 |---|------------|------|
-| 1 | HDB operates a single **private VPC** with dedicated subnets for each tier (DMZ, Application, Data, Analytics). | Low — standard enterprise network design. |
-| 2 | `data.gov.sg` exposes resale flat price datasets as CSV files via **public HTTPS download URLs**. | Medium — if the API or URL structure changes, the download job will need updating. |
-| 3 | The data science team runs **Tableau Server on EC2** inside the private Analytics subnet. | Low — assumes existing Tableau infrastructure. |
-| 4 | Total dataset size remains **< 5 TB**, making Athena + S3 cost-effective without Redshift. | Medium — if data volume grows significantly (e.g., additional datasets are onboarded), the architecture may need re-evaluation. Consider setting a CloudWatch alarm on S3 bucket size. |
-| 5 | Data refreshes are **weekly** (batch); real-time streaming is not required. | Low — HDB resale data is published periodically, not in real time. |
-| 6 | IAM roles and policies are in place but are not detailed in this document. | Low — standard operational prerequisite. |
+| 1 | HDB operates a single **private VPC** with dedicated subnets for each tier (DMZ, Application, Data, Analytics). | Low; standard enterprise network design. |
+| 2 | `data.gov.sg` exposes resale flat price datasets as CSV files via **public HTTPS download URLs**. | Medium; if the API or URL structure changes, manual intervention is required to update the download job. |
+| 3 | The data science team runs **Tableau Server on EC2** inside the private Analytics subnet. | Low; assumes existing Tableau infrastructure. |
+| 4 | Total dataset size remains **< 5 TB**, making Athena + S3 cost-effective without Redshift. | Medium; if data volume grows significantly (e.g., additional datasets are onboarded), the architecture may need need to be re-evaluated. A possible safeguard is to set a CloudWatch alarm on S3 bucket size. |
+| 5 | Data refreshes are **weekly** (batch); real-time streaming is not required. | Low; HDB resale data is published periodically, not in real time. |
+| 6 | IAM roles and policies are in place but are not detailed in the provided document. | Low; standard operational prerequisite. |
 
 ---
 
