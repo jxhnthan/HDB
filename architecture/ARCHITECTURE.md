@@ -6,7 +6,7 @@
 
 ## Table of Contents
 
-1. [Why This Platform Exists](#why-this-platform-exists)
+1. [Key Functions](#key-functions)
 2. [Design Assumptions](#design-assumptions)
 3. [Data Ingestion Architecture](#data-ingestion-architecture)
 4. [Data Exploitation Architecture](#data-exploitation-architecture)
@@ -18,7 +18,7 @@
 
 ---
 
-## Why This Platform Exists
+## Key Functions
 
 The platform performs two core functions:
 
@@ -28,7 +28,7 @@ The platform performs two core functions:
 
 ### Key Design Decisions
 
-Before diving into the architecture, here's the rationale behind a few design chocies:
+Before going into detail on the proposed data architecture, here's the rationale behind a few design chocies:
 
 | Decision | Why |
 |----------|-----|
@@ -87,7 +87,7 @@ flowchart LR
 
 The ETL job writes any records that fail validation or anomaly detection to a dedicated `s3://…/failed-records/` prefix, partitioned by processing date. This enables the data engineering team to review failed records in context and investigate potential data quality issues efficiently.
 
-At present, failed records are reviewed manually. As a future enhancement, the pipeline could publish an SNS notification whenever the number of failed records exceeds a configurable threshold. This would provide timely visibility into potential data quality issues, allowing the team to investigate and respond before failures accumulate unnoticed.
+At present, failed records are reviewed manually. As a future enhancement, the pipeline could publish an Slack/Teams notification whenever the number of failed records exceeds a configurable threshold. This would provide timely visibility into potential data quality issues, allowing the team to investigate and respond before failures accumulate unnoticed.
 
 ### Sequence Diagram
 
@@ -237,8 +237,6 @@ The table below shows both a **realistic** estimate based on expected workload a
 | NAT Gateway | ~$43.07 | ~$50.07 | $0.059/hr × 730 hrs = ~$43.07. This is the fixed hourly cost and is unavoidable as long as the platform needs to reach `data.gov.sg`. The conservative estimate adds ~$7 for data transfer charges at $0.059/GB. |
 | VPC Endpoints (1 Interface) | ~$7.30 | ~$14.60 | Athena PrivateLink at ~$7.30 per AZ. The S3 Gateway Endpoint is free. The conservative estimate assumes deployment across 2 AZs for high availability. |
 | **Total** | **~$54.82** | **~$77.17** | |
-
-**To put this in perspective:** the entire platform — ingestion, storage, querying, and private networking — costs roughly the same as a single Netflix subscription. The NAT Gateway alone accounts for ~78% of the bill; everything else is almost negligible thanks to the serverless, pay-per-use model.
 
 ---
 
