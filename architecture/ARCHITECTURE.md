@@ -32,7 +32,7 @@ Here's the rationale behind a few design chocies (non-exhaustive):
 
 | Decision | Why |
 |----------|-----|
-| **Athena + S3 instead of Redshift** | The dataset is small (< 5 TB) and queried infrequently. Redshift would provide faster concurrent queries but costs ~$180+/month for even a single-node cluster, which is more than double the cost of this entire platform. Athena's pay-per-query model is a better fit here. |
+| **Athena + S3 instead of Redshift** | The dataset is small (< 5 TB) and queried infrequently. Redshift would provide faster concurrent queries but costs ~\$180+/month for even a single-node cluster, which is more than double the cost of this entire platform. Athena's pay-per-query model is a better fit here. |
 | **Parquet instead of CSV for processed data** | Parquet is a columnar format, which means Athena can skip irrelevant columns entirely and benefit from built-in compression. This reduces both query time and cost (Athena charges by data scanned). A typical query against Parquet scans 10–100× less data than the same query against CSV. |
 | **NAT Gateway for data download** | The NAT Gateway is the single most expensive component (~78% of the monthly bill). Unfortunately, it's unavoidable: `data.gov.sg` is a public internet endpoint, and resources in private subnets need the NAT Gateway to reach it. There is no AWS PrivateLink equivalent for external government APIs. |
 | **Serverless processing (Glue) instead of EC2-based ETL** | Glue jobs spin up only when needed and shut down immediately after. There are no servers to patch, scale, or pay for during idle time. For a weekly batch workload, this is significantly cheaper and simpler than maintaining dedicated EC2 instances. |
@@ -171,11 +171,11 @@ The VPC is divided into four purpose-specific subnets. Traffic flows in one dire
 
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": true, "curve": "basis"}, "themeVariables": {"primaryColor": "#f9f7ff", "primaryBorderColor": "#8c4fff", "lineColor": "#8c4fff", "tertiaryColor": "#f0f2f5"}}}%%
-flowchart TB
+flowchart LR
     INTERNET["Internet"]
 
     subgraph VPC["HDB VPC — 10.0.0.0/16"]
-        direction TB
+        direction LR
         DMZ["DMZ Subnet<br/>10.0.1.0/24<br/>NAT Gateway"]
         APP["Application Subnet<br/>10.0.10.0/24<br/>Glue · Step Functions · Lambda"]
         DATA["Data Subnet<br/>10.0.20.0/24<br/>S3 Gateway EP · Athena PrivateLink"]
@@ -205,7 +205,7 @@ flowchart TB
 | Endpoint | Type | Cost | Purpose |
 |----------|------|------|---------|
 | S3 Gateway Endpoint | Gateway | Free | Gives private subnets direct access to S3 without routing through the NAT Gateway (saving both latency and cost). |
-| Athena Interface Endpoint | PrivateLink | ~$7.50/month per AZ | Lets Tableau query Athena over a private IP address instead of a public endpoint. |
+| Athena Interface Endpoint | PrivateLink | ~\$7.50/month per AZ | Lets Tableau query Athena over a private IP address instead of a public endpoint. |
 
 ---
 
@@ -229,12 +229,12 @@ The table below shows both a **realistic** estimate based on expected workload a
 
 | Service | Realistic | Conservative | Why it costs this much |
 |---------|-----------|--------------|------------------------|
-| S3 Storage (~50 GB) | ~$1.25 | ~$1.50 | Standard tier at ~$0.025/GB. Includes PUT/GET request costs, which are negligible at this scale. |
-| AWS Glue (2 jobs/week) | ~$3 | ~$10 | 1 DPU Python Shell (~5 min) + 2 DPU PySpark (~15 min) at $0.44/DPU-hr. The conservative estimate accounts for longer runtimes or higher DPU allocation during peak loads. |
-| Athena (~20 queries/week) | ~$0.20 | ~$1 | $5/TB scanned. Parquet format and year/month partitioning reduce scan volume dramatically — each query typically scans 50–500 MB, not gigabytes. |
-| NAT Gateway | ~$43.07 | ~$50.07 | $0.059/hr × 730 hrs = ~$43.07. This is the fixed hourly cost and is unavoidable as long as the platform needs to reach `data.gov.sg`. The conservative estimate adds ~$7 for data transfer charges at $0.059/GB. |
-| VPC Endpoints (1 Interface) | ~$7.30 | ~$14.60 | Athena PrivateLink at ~$7.30 per AZ. The S3 Gateway Endpoint is free. The conservative estimate assumes deployment across 2 AZs for high availability. |
-| **Total** | **~$54.82** | **~$77.17** | |
+| S3 Storage (~50 GB) | ~\$1.25 | ~\$1.50 | Standard tier at ~\$0.025/GB. Includes PUT/GET request costs, which are negligible at this scale. |
+| AWS Glue (2 jobs/week) | ~\$3 | ~\$10 | 1 DPU Python Shell (~5 min) + 2 DPU PySpark (~15 min) at \$0.44/DPU-hr. The conservative estimate accounts for longer runtimes or higher DPU allocation during peak loads. |
+| Athena (~20 queries/week) | ~\$0.20 | ~\$1 | \$5/TB scanned. Parquet format and year/month partitioning reduce scan volume dramatically — each query typically scans 50–500 MB, not gigabytes. |
+| NAT Gateway | ~\$43.07 | ~\$50.07 | \$0.059/hr × 730 hrs = ~\$43.07. This is the fixed hourly cost and is unavoidable as long as the platform needs to reach `data.gov.sg`. The conservative estimate adds ~\$7 for data transfer charges at \$0.059/GB. |
+| VPC Endpoints (1 Interface) | ~\$7.30 | ~\$14.60 | Athena PrivateLink at ~\$7.30 per AZ. The S3 Gateway Endpoint is free. The conservative estimate assumes deployment across 2 AZs for high availability. |
+| **Total** | **~\$54.82** | **~\$77.17** | |
 
 ---
 
@@ -250,7 +250,7 @@ The table below shows both a **realistic** estimate based on expected workload a
 | Data catalogue | AWS Glue Data Catalog | Stores table schemas and partition metadata so Athena knows how to query the data without manual configuration. |
 | Query engine | Amazon Athena | Serverless SQL over S3. No clusters to provision, no idle costs — you pay only for the data each query scans. |
 | BI / Analytics | Tableau Server on EC2 | The team's existing BI tool. Connects to Athena via JDBC/ODBC and presents data through familiar dashboards and visualisations. |
-| Private networking | VPC Endpoints | S3 Gateway Endpoint (free) + Athena PrivateLink (~$7.30/month) keep all data traffic off the public internet. |
+| Private networking | VPC Endpoints | S3 Gateway Endpoint (free) + Athena PrivateLink (~\$7.30/month) keep all data traffic off the public internet. |
 
 ---
 
