@@ -223,7 +223,7 @@ This section outlines the most likely failure scenarios and how the platform han
 
 ### Infrastructure as Code
 
-The entire platform is designed to be provisioned and versioned as code using **Terraform** (AWS CloudFormation is a viable AWS-native alternative). Every component described in this document — the VPC and its four subnets, VPC Endpoints, IAM roles, SSE-KMS-encrypted S3 buckets, Glue jobs, the EventBridge schedule, and the Step Functions state machine — is represented declaratively in configuration. This enables:
+The entire platform is designed to be provisioned and versioned as code using **Terraform** (AWS CloudFormation is a viable AWS-native alternative). Every component described in this document: the VPC and its four subnets, VPC Endpoints, IAM roles, SSE-KMS-encrypted S3 buckets, Glue jobs, the EventBridge schedule, and the Step Functions state machine. This enables:
 
 - **Reproducibility** — a single `terraform apply` builds the full environment, with no click-ops or configuration drift.
 - **Version-controlled change** — infrastructure updates go through the same git history and code review as application code.
