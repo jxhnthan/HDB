@@ -7,17 +7,21 @@ An end-to-end data pipeline that extracts, cleans, validates, transforms, and ex
 ## Project Structure
 
 ```
-DEA/
+HDB/
+├── HDB_analysis.ipynb                  # Main ETL notebook (run cells sequentially)
+├── README.md                           # This file
+│
 ├── raw_data/ResaleFlatPrices/          # [GROUP 1: RAW] 3 source CSVs
-│   ├── 2000-Feb2012 (Approval).csv
-│   ├── Mar2012-Dec2014 (Registration).csv
-│   └── Jan2015-Dec2016 (Registration).csv
+│   ├── Resale Flat Prices (Based on Approval Date), 2000 - Feb 2012.csv
+│   ├── Resale Flat Prices (Based on Registration Date), From Mar 2012 to Dec 2014.csv
+│   └── Resale Flat Prices (Based on Registration Date), From Jan 2015 to Dec 2016.csv
 │
 ├── manipulated_data/                   # Pipeline output files
+│   ├── master_dataset.csv              # Combined master dataset (Step 1)
 │   ├── cleaned_dataset.csv             # [GROUP 2: CLEANED]
 │   ├── transformed_dataset.csv         # [GROUP 3: TRANSFORMED]
 │   ├── failed_records.csv              # [GROUP 4: FAILED]
-│   └── hashed_dataset.csv             # [GROUP 5: HASHED]
+│   └── hashed_dataset.csv              # [GROUP 5: HASHED]
 │
 ├── profiling_outputs/                  # Reports and visualisations
 │   ├── profiling_summary.txt
@@ -25,9 +29,19 @@ DEA/
 │   ├── validation_rules.json
 │   └── anomaly_summary.json
 │
-├── HDB_analysis.ipynb                  # Main notebook
-└── README.md                           # This file
+├── docs/                               # Deployable AWS architecture documentation
+│   ├── architecture.html               # Interactive architecture diagram
+│   ├── index.html
+│   └── icons/                          # AWS service icons (SVG)
+│
+└── architecture/                       # Architecture design documents
+    ├── ARCHITECTURE.md                 # Design decisions, security, cost estimates
+    └── diagrams/
+        ├── architecture.html
+        └── icons/
 ```
+
+The `docs/` and `architecture/` folders document the AWS architecture that this pipeline maps onto (data.gov.sg → S3 → AWS Glue → Amazon Athena → Tableau). Open `docs/architecture.html` for an interactive diagram, or `architecture/ARCHITECTURE.md` for the design rationale, network segmentation, and cost estimates.
 
 ---
 
