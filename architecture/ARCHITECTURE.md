@@ -161,8 +161,6 @@ sequenceDiagram
     AE-->>T: Result set (private IP)
 ```
 
-With the data flowing securely from S3 through Athena to Tableau, the next layer would be the network architecture that makes all of this private.
-
 ---
 
 ## Security & Network Segmentation
@@ -174,7 +172,7 @@ The VPC is divided into four purpose-specific subnets. Traffic flows in one dire
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": true, "curve": "basis"}, "themeVariables": {"primaryColor": "#f9f7ff", "primaryBorderColor": "#8c4fff", "lineColor": "#8c4fff", "tertiaryColor": "#f0f2f5"}}}%%
 flowchart TB
-    INTERNET["🌐 Internet"]
+    INTERNET["Internet"]
 
     subgraph VPC["HDB VPC — 10.0.0.0/16"]
         direction TB
