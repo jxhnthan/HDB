@@ -1,10 +1,10 @@
-# HDB AWS Architecture Design
+# HDB AWS Data Architecture Design
 
-> Turning publicly available HDB resale flat price data into trusted, query-ready insights, automatically, securely, and at an affordable price.
+> Turning publicly available HDB resale flat price data into trusted, query-ready insights, automatically, securely, and at an affordable price for HDB.
 
 ---
 
-## Table of Contents
+## Table of contents
 
 1. [Key Functions](#key-functions)
 2. [Design Assumptions](#design-assumptions)
@@ -18,7 +18,7 @@
 
 ---
 
-## Key Functions
+## Key functions
 
 The proposed architecture serves two core functions:
 
@@ -26,7 +26,7 @@ The proposed architecture serves two core functions:
 
 **Exploitation**: Tableau Server, running on EC2 inside a private VPC, queries the processed data through Amazon Athena. All traffic stays within the VPC via AWS PrivateLink and Gateway Endpoints.
 
-### Key Design Decisions
+### Key design decisions
 
 Here's the rationale behind a few design chocies (non-exhaustive):
 
@@ -39,7 +39,7 @@ Here's the rationale behind a few design chocies (non-exhaustive):
 
 ---
 
-## Design Assumptions
+## Design assumptions
 
 | # | Assumption | Risk |
 |---|------------|------|
@@ -52,13 +52,13 @@ Here's the rationale behind a few design chocies (non-exhaustive):
 
 ---
 
-## Data Ingestion Architecture
+## Data ingestion architecture
 
 ### Objective
 
-Pull HDB resale flat price CSVs from `data.gov.sg` into HDB's private data platform on a weekly schedule, applying cleaning, transformation, deduplication, anomaly detection, and hashing.
+We need to pull HDB resale flat price CSVs from `data.gov.sg` into HDB's private data platform on a weekly schedule, applying cleaning, transformation, deduplication, anomaly detection, and hashing.
 
-### Architecture Diagram
+### Architecture diagram
 
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": true, "curve": "linear"}, "themeVariables": {"primaryColor": "#fff", "primaryTextColor": "#232f3e", "primaryBorderColor": "#d5dbdb", "lineColor": "#8c4fff", "tertiaryColor": "#f0f2f5", "fontSize": "13px"}}}%%
@@ -73,7 +73,7 @@ flowchart LR
     D --> H["S3 — Failed Records"]
 ```
 
-### Step-by-Step Flow
+### Step-by-Step flow
 
 | Step | Action | Detail |
 |------|--------|--------|
@@ -83,13 +83,13 @@ flowchart LR
 | **4. ETL** | A **Glue PySpark** job reads the raw file and runs the processing pipeline. | The pipeline executes in sequence: schema validation → data cleaning → lease recomputation → deduplication → anomaly detection → SHA-256 hashing. The logic is ported from the team's existing Jupyter notebook. |
 | **5. Output** | The ETL job writes processed records to four destination zones in S3. | **Cleaned** — valid records that passed all checks. **Transformed** — records enriched with recomputed fields (e.g., remaining lease). **Hashed** — records with PII columns replaced by SHA-256 hashes. **Failed Records** — rows that did not pass schema validation or anomaly checks. |
 
-### What Happens to Failed Records?
+### What happens to failed records?
 
 The ETL job writes any records that fail validation or anomaly detection to a dedicated `s3://…/failed-records/` prefix, partitioned by processing date. This enables the data engineering team to review failed records in context and investigate potential data quality issues efficiently.
 
-At present, failed records are reviewed manually. As a future enhancement, the pipeline could publish an Slack/Teams notification whenever the number of failed records exceeds a configurable threshold. This would provide timely visibility into potential data quality issues, allowing the team to investigate and respond before failures accumulate unnoticed.
+At present, failed records are reviewed manually. As a future enhancement, the pipeline could publish an Slack/Teams notification whenever the number of failed records exceeds a configurable threshold (via a POST API call). This would provide timely visibility into potential data quality issues, allowing the team to investigate and respond before failures accumulate unnoticed.
 
-### Sequence Diagram
+### Sequence diagram
 
 ```mermaid
 %%{init: {"sequence": {"mirrorActors": false, "bottomMarginAdj": 0}, "themeVariables": {"actorBorder": "#8c4fff", "actorTextColor": "#232f3e", "actorBkg": "#f9f7ff", "signalColor": "#545b64", "signalTextColor": "#545b64"}}}%%
@@ -117,7 +117,7 @@ Once the processed data lands in S3, we need to allow the data to reach the anal
 
 ---
 
-## Data Exploitation Architecture
+## Data exploitation architecture
 
 ### Objective
 
@@ -137,8 +137,8 @@ flowchart LR
 
 | Step | Action | Detail |
 |------|--------|--------|
-| **1. Storage format** | The ETL job stores processed data as **Parquet** files in S3. | Parquet's columnar layout means Athena reads only the columns a query actually needs, and built-in compression shrinks file sizes dramatically. The result: faster queries that scan less data and cost less. |
-| **2. Cataloguing** | The **AWS Glue Data Catalog** registers table schemas and partition metadata. | Tables are partitioned by `year` and `month`. When a Tableau user filters by date range, Athena skips partitions outside that range entirely, avoiding full-table scans. |
+| **1. Storage format** | The ETL job stores processed data as **Parquet** files in S3. | Parquet's columnar layout means Athena reads only the columns a query actually needs, and built-in compression shrinks file sizes dramatically. This results in faster queries that scan less data and cost less. |
+| **2. Cataloguing** | The **AWS Glue Data Catalog** registers table schemas and partition metadata. | Tables are partitioned by `year` and `month`. When a Tableau user filters by date range, Athena skips partitions outside that range entirely, avoiding full-table scans = time and money saved. |
 | **3. Connection** | Tableau Server connects to Athena through the **Athena ODBC/JDBC driver**. | The driver is installed on the Tableau EC2 instance and configured to route queries through the VPC endpoint (not the public Athena endpoint). |
 | **4. Private path** | All query traffic flows through an **Athena VPC Interface Endpoint (PrivateLink)**. | Nothing leaves the VPC. There is no internet-facing path between Tableau and Athena. |
 | **5. Query execution** | Tableau sends SQL → Athena scans S3 via the **S3 Gateway Endpoint** → results return privately to Tableau. | From the analyst's perspective, this would feel like any standard Tableau data connection.|
@@ -161,7 +161,7 @@ sequenceDiagram
     AE-->>T: Result set (private IP)
 ```
 
-With the data flowing securely from S3 through Athena to Tableau, the next layer to understand is the network architecture that makes all of this private.
+With the data flowing securely from S3 through Athena to Tableau, the next layer would be the network architecture that makes all of this private.
 
 ---
 
@@ -169,7 +169,7 @@ With the data flowing securely from S3 through Athena to Tableau, the next layer
 
 ### VPC Layout
 
-The VPC is divided into four purpose-specific subnets. Traffic flows in one direction — from the DMZ inward — and each tier is isolated from the others by dedicated route tables and network ACLs.
+The VPC is divided into four purpose-specific subnets. Traffic flows in one direction primarily from the DMZ inward and each tier is isolated from the others by dedicated route tables and network ACLs.
 
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": true, "curve": "basis"}, "themeVariables": {"primaryColor": "#f9f7ff", "primaryBorderColor": "#8c4fff", "lineColor": "#8c4fff", "tertiaryColor": "#f0f2f5"}}}%%
@@ -178,10 +178,10 @@ flowchart TB
 
     subgraph VPC["HDB VPC — 10.0.0.0/16"]
         direction TB
-        DMZ["🟠 DMZ Subnet<br/>10.0.1.0/24<br/>NAT Gateway"]
-        APP["🔵 Application Subnet<br/>10.0.10.0/24<br/>Glue · Step Functions · Lambda"]
-        DATA["🟢 Data Subnet<br/>10.0.20.0/24<br/>S3 Gateway EP · Athena PrivateLink"]
-        ANALYTICS["🟣 Analytics Subnet<br/>10.0.30.0/24<br/>Tableau Server (EC2)"]
+        DMZ["DMZ Subnet<br/>10.0.1.0/24<br/>NAT Gateway"]
+        APP["Application Subnet<br/>10.0.10.0/24<br/>Glue · Step Functions · Lambda"]
+        DATA["Data Subnet<br/>10.0.20.0/24<br/>S3 Gateway EP · Athena PrivateLink"]
+        ANALYTICS["Analytics Subnet<br/>10.0.30.0/24<br/>Tableau Server (EC2)"]
     end
 
     INTERNET -.->|"Outbound only"| DMZ
@@ -190,17 +190,17 @@ flowchart TB
     DATA -.->|"PrivateLink"| ANALYTICS
 ```
 
-**The core principle is simple:** only the DMZ subnet has a route to the internet, and that route is outbound-only (via the NAT Gateway). No compute resource in any subnet has a public IP address. If an attacker compromised a single component, the subnet boundaries and route tables would limit lateral movement.
+**The core principle is that:** only the DMZ subnet has a route to the internet, and that route is outbound-only (via the NAT Gateway). No compute resource in any subnet has a public IP address. If an attacker compromised a single component, the subnet boundaries and route tables would limit lateral movement.
 
 ### Security Controls
 
 | Layer | Control | What it does |
 |-------|---------|--------------|
-| **Network isolation** | Private subnets with no internet gateway | All compute (Glue, EC2) runs in private subnets. The only path to the internet is the NAT Gateway in the DMZ — and it only allows outbound connections. |
+| **Network isolation** | Private subnets with no internet gateway | All compute (Glue, EC2) runs in private subnets. The only path to the internet is the NAT Gateway in the DMZ and it only allows outbound connections. |
 | **Data in transit** | VPC Endpoints for all AWS service traffic | The S3 Gateway Endpoint and Athena PrivateLink keep traffic on the AWS backbone. Nothing is routed over the public internet. |
-| **Data at rest** | SSE-KMS encryption on all S3 buckets | Every object written to the data lake is encrypted using AWS KMS–managed keys. Even if someone gained direct access to the underlying storage, the data would be unreadable without the KMS key. |
+| **Data at rest** | SSE-KMS encryption on all S3 buckets | Every object written to the data lake is encrypted using AWS KMS–managed keys. Even if someone gained direct access to the underlying storage, the data would be unreadable without the KMS key which would be stored as a env var. |
 | **Access control** | S3 bucket policies with VPC endpoint conditions | Bucket policies include `aws:sourceVpce` conditions that reject any request not originating from the designated VPC Endpoint. This means the data is inaccessible even from other AWS accounts or VPCs. |
-| **Segmentation** | Per-subnet route tables and NACLs | Each tier (DMZ, App, Data, Analytics) has its own route table and network ACL. This limits blast radius — a misconfiguration in one tier cannot directly affect another. |
+| **Segmentation** | Per-subnet route tables and NACLs | Each tier (DMZ, App, Data, Analytics) has its own route table and network ACL. This limits blast radius (i.e., a misconfiguration in one tier cannot directly affect another.) |
 
 ### VPC Endpoints
 
@@ -213,7 +213,7 @@ flowchart TB
 
 ## Operational Considerations
 
-No architecture is complete without thinking about what happens when things go wrong. This section outlines the most likely failure scenarios and how the platform handles (or should handle) them.
+This section outlines the most likely failure scenarios and how the platform handles (or should handle) them.
 
 | Scenario | Impact | Current Mitigation | Recommended Enhancement |
 |----------|--------|---------------------|-------------------------|
