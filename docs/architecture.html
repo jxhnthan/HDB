@@ -171,8 +171,8 @@
   }
 
   /* ── Collapsible body ── */
-  .section-body { overflow: hidden; transition: max-height 0.35s ease, opacity 0.25s ease; max-height: none; opacity: 1; }
-  .section-body.collapsed { max-height: 0 !important; opacity: 0; padding-top: 0 !important; margin-top: 0 !important; }
+  .section-body { overflow: visible; transition: max-height 0.35s ease, opacity 0.25s ease; max-height: none; opacity: 1; }
+  .section-body.collapsed { max-height: 0 !important; opacity: 0; padding-top: 0 !important; margin-top: 0 !important; overflow: hidden !important; }
 
   /* ── Pipeline flow ── */
   .pipeline {
@@ -216,7 +216,7 @@
     position: relative;
   }
   .tooltip {
-    position: absolute; bottom: calc(100% + 48px); left: 50%; transform: translateX(-50%);
+    position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
     background: var(--tooltip-bg); color: var(--tooltip-fg); font-size: 10px; line-height: 1.4;
     padding: 6px 10px; border-radius: 6px; pointer-events: none;
     opacity: 0; transition: opacity 0.18s ease;
@@ -700,14 +700,15 @@
       </div>
       <div class="details-content">
         <div style="padding:16px;background:var(--bg);border-radius:8px;font-size:13px;line-height:1.7;">
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Realistic estimate vs conservative upper bound for budgeting. Rates reflect ap-southeast-1 pricing.</div>
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
-            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);font-weight:600;">Service</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);font-weight:600;">Monthly</td></tr>
-            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">S3 Storage (~50 GB)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$1.25</td></tr>
-            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">AWS Glue (2 jobs/week)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$3</td></tr>
-            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">Athena (~20 queries/week)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$0.20</td></tr>
-            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">NAT Gateway</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$43</td></tr>
-            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">VPC Endpoints</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$7.30</td></tr>
-            <tr><td style="padding:6px 12px;font-weight:600;color:var(--red);">Total</td><td style="padding:6px 12px;font-weight:600;color:var(--red);">~$54.75</td></tr>
+            <tr><th style="padding:6px 12px;border-bottom:1px solid var(--border);font-weight:600;text-align:left;">Service</th><th style="padding:6px 12px;border-bottom:1px solid var(--border);font-weight:600;text-align:left;">Realistic</th><th style="padding:6px 12px;border-bottom:1px solid var(--border);font-weight:600;text-align:left;">Conservative</th></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">S3 Storage (~50 GB)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$1.25</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$1.50</td></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">AWS Glue (2 jobs/week)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$3</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$10</td></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">Athena (~20 queries/week)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$0.20</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$1</td></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">NAT Gateway</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$43.07</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$50.07</td></tr>
+            <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">VPC Endpoints (1 Interface)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$7.30</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$14.60</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:600;color:var(--red);">Total</td><td style="padding:6px 12px;font-weight:600;color:var(--red);">~$54.82</td><td style="padding:6px 12px;font-weight:600;color:var(--red);">~$77.17</td></tr>
           </table>
         </div>
       </div>
@@ -884,17 +885,23 @@
     const body = header.nextElementSibling;
     const hint = header.querySelector('.toggle-hint');
     if (!body || !body.classList.contains('section-body')) return;
+    const isCollapsing = !body.classList.contains('collapsed');
     body.classList.toggle('collapsed');
-    if (body.classList.contains('collapsed')) {
+    if (isCollapsing) {
+      // Clip while the section shrinks
+      body.style.overflow = 'hidden';
       body.style.maxHeight = body.scrollHeight + 'px';
       requestAnimationFrame(() => { body.style.maxHeight = '0px'; });
       hint.textContent = 'click to expand';
     } else {
+      // Clip during the grow, then restore so tooltips can overflow again
+      body.style.overflow = 'hidden';
       body.style.maxHeight = '0px';
       requestAnimationFrame(() => {
         body.style.maxHeight = body.scrollHeight + 'px';
         setTimeout(() => {
           body.style.maxHeight = 'none';
+          body.style.overflow = '';
           hint.textContent = 'click to collapse';
         }, 350);
       });
