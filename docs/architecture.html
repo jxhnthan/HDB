@@ -388,6 +388,41 @@
   }
   .security-grid .item img { width: 18px; height: 18px; }
 
+  /* ── Governance & observability ── */
+  .gov-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .gov-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 16px;
+  }
+  .gov-card h4 {
+    font-size: 12px; font-weight: 650; color: var(--text);
+    letter-spacing: -0.1px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .gov-card h4::before {
+    content: ''; width: 8px; height: 8px; border-radius: 2px;
+    background: var(--teal);
+  }
+  .gov-items { display: flex; flex-direction: column; gap: 10px; }
+  .gov-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+    transition: border-color 0.15s;
+  }
+  .gov-item:hover { border-color: var(--teal-border); }
+  .gov-icon {
+    width: 34px; height: 34px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--teal-bg); color: var(--teal);
+    border: 1px solid var(--teal-border); border-radius: 8px;
+  }
+  .gov-icon img, .gov-icon svg { width: 20px; height: 20px; }
+  .gov-name { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .gov-sub { font-size: 11px; color: var(--text-secondary); line-height: 1.45; }
+
   /* ── Expandable details ── */
   .details-toggle {
     text-align: center; margin-top: 24px;
@@ -447,6 +482,7 @@
     .canvas { padding: 24px; }
     .subnet-row { grid-template-columns: repeat(2, 1fr); }
     .flow-indicators { grid-template-columns: repeat(2, 1fr); }
+    .gov-grid { grid-template-columns: 1fr; }
     .pipeline { flex-wrap: wrap; gap: 4px; }
     .pipe-arrow svg { width: 24px; }
     .top-nav { gap: 4px; overflow-x: auto; }
@@ -477,6 +513,7 @@
   <a href="#sec-2" data-section="2">Network</a>
   <a href="#sec-3" data-section="3">Exploitation</a>
   <a href="#sec-4" data-section="4">Security</a>
+  <a href="#sec-5" data-section="5">Governance</a>
   <button id="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
     <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -710,6 +747,59 @@
             <tr><td style="padding:6px 12px;border-bottom:1px solid var(--border);">VPC Endpoints (1 Interface)</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$7.30</td><td style="padding:6px 12px;border-bottom:1px solid var(--border);">~$14.60</td></tr>
             <tr><td style="padding:6px 12px;font-weight:600;color:var(--red);">Total</td><td style="padding:6px 12px;font-weight:600;color:var(--red);">~$54.82</td><td style="padding:6px 12px;font-weight:600;color:var(--red);">~$77.17</td></tr>
           </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────── SECTION 5 ──────── -->
+  <div class="section" id="sec-5">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-number">5</div>
+      <h2>Governance &amp; Observability</h2>
+      <span class="tag">governance &amp; ops</span>
+      <span class="toggle-hint">click to collapse</span>
+    </div>
+    <div class="section-body">
+      <div class="section-intro">Fine-grained data access control and platform-wide observability harden the platform beyond the baseline security controls.</div>
+      <div class="gov-grid">
+        <div class="gov-card">
+          <h4>Data Access Governance</h4>
+          <div class="gov-items">
+            <div class="gov-item">
+              <div class="gov-icon"><img src="icons/lake-formation.svg" alt="Lake Formation"></div>
+              <div>
+                <div class="gov-name">AWS Lake Formation</div>
+                <div class="gov-sub">Fine-grained column and row-level access over S3 data, complementing IAM roles and bucket policies.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="gov-card">
+          <h4>Observability &amp; Security Ops</h4>
+          <div class="gov-items">
+            <div class="gov-item">
+              <div class="gov-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+              <div>
+                <div class="gov-name">Amazon CloudWatch</div>
+                <div class="gov-sub">Monitoring, logging, and alerting for pipelines and platform resources.</div>
+              </div>
+            </div>
+            <div class="gov-item">
+              <div class="gov-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+              <div>
+                <div class="gov-name">AWS CloudTrail</div>
+                <div class="gov-sub">API activity audit trail for governance and compliance.</div>
+              </div>
+            </div>
+            <div class="gov-item">
+              <div class="gov-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div>
+              <div>
+                <div class="gov-name">AWS Secrets Manager</div>
+                <div class="gov-sub">Centralised management and rotation of credentials and API keys.</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
