@@ -221,6 +221,15 @@ This section outlines the most likely failure scenarios and how the platform han
 | **S3 bucket fills beyond 5 TB** | Athena queries may become slower or more expensive. The cost model assumptions no longer hold. | No current mitigation. | Set a CloudWatch alarm on the `BucketSizeBytes` metric. If the threshold is approached, evaluate whether to introduce S3 lifecycle policies (e.g., archiving old partitions to Glacier) or migrate to Redshift. |
 | **NAT Gateway becomes a bottleneck** | Unlikely at current data volumes, but large file downloads could incur significant data processing charges. | NAT Gateway scales automatically. | Monitor `BytesOutToDestination` and `BytesOutToSource` metrics. If data transfer costs grow, consider switching to a NAT instance for large downloads (trading availability for cost). |
 
+### Infrastructure as Code
+
+The entire platform is designed to be provisioned and versioned as code using **Terraform** (AWS CloudFormation is a viable AWS-native alternative). Every component described in this document — the VPC and its four subnets, VPC Endpoints, IAM roles, SSE-KMS-encrypted S3 buckets, Glue jobs, the EventBridge schedule, and the Step Functions state machine — is represented declaratively in configuration. This enables:
+
+- **Reproducibility** — a single `terraform apply` builds the full environment, with no click-ops or configuration drift.
+- **Version-controlled change** — infrastructure updates go through the same git history and code review as application code.
+- **Safe iteration** — `terraform plan` previews the exact diff before anything changes, and environments can be spun up or torn down on demand for testing.
+- **CI/CD alignment** — configuration is deployed through a pipeline, consistent with the DataOps operating model.
+
 ---
 
 ## Monthly Cost Estimate
